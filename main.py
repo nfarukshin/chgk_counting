@@ -1,5 +1,5 @@
 import requests
-from datetime import datetime
+from tournament_date import get_tournament_date, get_year_print
 from roman_arabic_numerals import conv
 
 id_team_name = {}
@@ -96,78 +96,8 @@ def main():
             except:
                 print(f'Problems with url_town={city_id}')
 
-        # making date start and date end
-
-        start = datetime.strptime(date_start[:10], "%Y-%m-%d")
-        end = datetime.strptime(date_end[:10], "%Y-%m-%d")
-
-        sy = start.year
-        sm = start.month
-        sd = start.day
-        ey = end.year
-        em = end.month
-        ed = end.day
-
-        if sm == 1:
-            sm = "января"
-        elif sm == 2:
-            sm = "февраля"
-        elif sm == 3:
-            sm = "марта"
-        elif sm == 4:
-            sm = "апреля"
-        elif sm == 5:
-            sm = "мая"
-        elif sm == 6:
-            sm = "июня"
-        elif sm == 7:
-            sm = "июля"
-        elif sm == 8:
-            sm = "августа"
-        elif sm == 9:
-            sm = "сентября"
-        elif sm == 10:
-            sm = "октября"
-        elif sm == 11:
-            sm = "ноября"
-        elif sm == 12:
-            sm = "декабря"
-
-        if em == 1:
-            em = "января"
-        elif em == 2:
-            em = "февраля"
-        elif em == 3:
-            em = "марта"
-        elif em == 4:
-            em = "апреля"
-        elif em == 5:
-            em = "мая"
-        elif em == 6:
-            em = "июня"
-        elif em == 7:
-            em = "июля"
-        elif em == 8:
-            em = "августа"
-        elif em == 9:
-            em = "сентября"
-        elif em == 10:
-            em = "октября"
-        elif em == 11:
-            em = "ноября"
-        elif em == 12:
-            em = "декабря"
-
-        if sy == ey:
-            if sm == em:
-                if sd == ed:
-                    tournament_date = f"{sd} {sm} {sy} года"
-                else:
-                    tournament_date = f"{sd}–{ed} {sm} {sy} года"
-            else:
-                tournament_date = f"{sd} {sm}–{ed} {em} {ey} года"
-        else:
-            tournament_date = f"{sd} {sm} {sy} года – {ed} {em} {ey} года"
+        tournament_date = get_tournament_date(date_start, date_end)
+        ey = get_year_print(date_end)
 
         url_results = f'https://api.rating.chgk.net/tournaments/{id_tournament}/' \
                       f'results.json?includeTeamMembers=1&includeTeamFlags=1'
