@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime
 
 def transform_date(date):
     return datetime.strptime(date[:10], "%Y-%m-%d")
