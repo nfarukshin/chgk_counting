@@ -5,6 +5,7 @@ import sys
 import argparse
 from operator import attrgetter
 import os
+import csv
 
 PREAMBLE = 'История ещё пополняется, статистика может быть неполна. Если у вас есть больше информации, особенно ' \
            'о составах призёров самых ранних чемпионатов, — напишите, пожалуйста, на <info@maii.li>.'
@@ -41,13 +42,28 @@ def create_parser():
 
 
 class Awardee:
-    def __init__(self, id, game):
+    def __init__(self, id, game='chgk'):
         self.id = id
         self.game = game
         self.sum = 0
         self.gold = 0
         self.silver = 0
         self.bronze = 0
+
+
+class superAwardee(Awardee):
+    games = {}  # example: {'chgk': Awardee, 'br': Awardee}
+
+    def add_game(self, awardee):
+        if self.id == awardee.id:
+            self.games[awardee.game] = awardee
+        else:
+            print('Не совпадают id у добавляемого призёра.')
+
+        self.sum += awardee.sum
+        self.gold += awardee.gold
+        self.silver += awardee.silver
+        self.bronze += awardee.bronze
 
 
 class Team:
@@ -68,7 +84,7 @@ class Player:
 def count_champions(awardees_counting_dict, id, place, game='chgk'):
     awardee = awardees_counting_dict.get(id)
     if awardee is None:
-        awardee = Awardee(id, game)
+        awardee = Awardee(id)
 
     if place == 1:
         awardee.gold += 1
@@ -82,6 +98,10 @@ def count_champions(awardees_counting_dict, id, place, game='chgk'):
     awardees_counting_dict[id] = awardee
 
     return awardees_counting_dict
+
+
+def count_other_game(csv, game):
+    pass
 
 
 def get_player(raw_player):
@@ -182,7 +202,34 @@ def transform_file2list(file):
     return lines
 
 
-def get_all_stats(filename, country_cyrillic, number, game):
+def save_to_csv(list_tournaments):
+    pass
+
+
+def get_tournament_info(id_tournament):
+    url_common_info = f'https://api.rating.chgk.net/tournaments/{id_tournament}.json'
+
+    k = requests.get(url_common_info)
+    try:
+        list_tour = k.json()
+    except:
+        print(f'problems with tournament id={id_tournament} in url_common_info')
+
+    try:
+        date_start = list_tour['dateStart']
+        date_end = list_tour['dateEnd']
+        city_id = list_tour['idtown']
+    except:
+        print(f'Problem with extracting dates and town tournament id={id_tournament}')
+
+    city_tournament = inflect_town(get_city_tournament(city_id))
+    tournament_date = get_tournament_date(date_start, date_end)
+    ey = get_year_print(date_end)
+    country_contributors = get_country_contributors(id_tournament)
+
+    return tournament_date, city_tournament, ey, country_contributors
+
+def get_chgk_stats_from_id(filename, country_cyrillic, number):
     f = transform_file2list(filename)
     country = filename[:-4]
     is_complete_teams = True
@@ -204,25 +251,7 @@ def get_all_stats(filename, country_cyrillic, number, game):
     t_errors = {'first': [], 'second': [], 'third': []}
 
     for id_tournament in f:
-        url_common_info = f'https://api.rating.chgk.net/tournaments/{id_tournament}.json'
-
-        k = requests.get(url_common_info)
-        try:
-            list_tour = k.json()
-        except:
-            print(f'problems with tournament id={id_tournament} in url_common_info')
-
-        try:
-            date_start = list_tour['dateStart']
-            date_end = list_tour['dateEnd']
-            city_id = list_tour['idtown']
-        except:
-            print(f'Problem with extracting dates and town tournament id={id_tournament}')
-
-        city_tournament = inflect_town(get_city_tournament(city_id))
-        tournament_date = get_tournament_date(date_start, date_end)
-        ey = get_year_print(date_end)
-        country_contributors = get_country_contributors(id_tournament)
+        tournament_date, city_tournament, ey, country_contributors = get_tournament_info(id_tournament)
 
         name_tournament = f'{conv.arab_rom(number_champ)} чемпионат {country_cyrillic}'
 
@@ -230,7 +259,7 @@ def get_all_stats(filename, country_cyrillic, number, game):
         team_count = count_champions(team_count, team_1.id, 1)
 
         ff.write(f'\n**{name_tournament}** прошёл {tournament_date} в {city_tournament}. <a name="{ey}"></a>\n')
-        ff.write(f"\nПобедитель: **[{team_1.name} ({team_1.city})](https://rating.chgk.info/team/{team_1.id})**\n")
+        ff.write(f"\nПобедитель: **[{team_1.name} ({team_1.city})](https://rating.chgk.info/teams/{team_1.id})**\n")
 
         if len(team_1.players) > 0:
             for p in team_1.players:
@@ -279,9 +308,9 @@ def get_all_stats(filename, country_cyrillic, number, game):
 
         ff.write(
             f'\nВторое место заняла команда [{team_2.name}'
-            f'](https://rating.chgk.info/team/{team_2.id}) '
+            f'](https://rating.chgk.info/teams/{team_2.id}) '
             f'({team_2.city}), третье — [{team_3.name}]'
-            f'(https://rating.chgk.info/team/{team_3.id}) ({team_3.city}).\n')
+            f'(https://rating.chgk.info/teams/{team_3.id}) ({team_3.city}).\n')
         ff.write(f'\nПолные результаты на [турнирном сайте](https://rating.chgk.info/tournament/{id_tournament}).\n')
         ff.write(f'\n<small>*[{YEARS_LINK_TEXT}](#{YEARS_ANCHOR})*</small>\n')
 
@@ -298,7 +327,7 @@ def get_all_stats(filename, country_cyrillic, number, game):
                                               reverse=True)
         f_count.write(f'\n### {TEAMS_CONTENTS} <a name="{TEAMS_ANCHOR}"></a>\n')
         f_count.write(f'\n<table class="{TABLE_TEAMS_STYLE}">\n<thead>\n<tr>'
-                  f'\n<th>Название</th>\n')
+                      f'\n<th>Название</th>\n')
         f_count.write(f'<th>Город</th>\n<th class ="{ROW_STYLE}">I</th>\n')
         f_count.write(f'<th class ="{ROW_STYLE}">II</th>\n<th class ="{ROW_STYLE}">III</th>\n')
         f_count.write(f'<th class ="{ROW_STYLE}">∑</th>\n</tr>\n')
@@ -326,7 +355,7 @@ def get_all_stats(filename, country_cyrillic, number, game):
 
         f_count.write(f'\n## {PLAYERS_CONTENTS} <a name="{PLAYERS_ANCHOR}"></a>\n')
         f_count.write(f'\n<table class="{TABLE_PLAYERS_STYLE}">\n<thead>\n<tr>'
-                  f'\n<th>Имя</th>\n')
+                      f'\n<th>Имя</th>\n')
         f_count.write(f'<th class ="{ROW_STYLE}">I</th>\n')
         f_count.write(f'<th class ="{ROW_STYLE}">II</th>\n')
         f_count.write(f'<th class ="{ROW_STYLE}">III</th>\n')
@@ -336,7 +365,7 @@ def get_all_stats(filename, country_cyrillic, number, game):
         for player in sorted_players_by_championship:
             name_champion_player = player_id_name.get(player.id)
             f_count.write(f'<tr>\n<td><a href="https://rating.chgk.info/player/{player.id}">'
-                      f'{name_champion_player}</a></td>\n')
+                          f'{name_champion_player}</a></td>\n')
             f_count.write(f'<td class ="{ROW_STYLE}">{player.gold}</td>\n')
             f_count.write(f'<td class ="{ROW_STYLE}">{player.silver}</td>\n')
             f_count.write(f'<td class ="{ROW_STYLE}">{player.bronze}</td>\n')
@@ -405,4 +434,5 @@ if __name__ == '__main__':
     else:
         game = 'chgk'
 
-    get_all_stats(filename, country_cyrillic, number, game)
+    if game == 'chgk':
+        get_chgk_stats_from_id(filename, country_cyrillic, number)
