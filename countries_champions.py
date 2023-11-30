@@ -426,7 +426,7 @@ if __name__ == '__main__':
     if namespace.cyr:
         country_cyrillic = namespace.cyr
     if namespace.number:
-        number = namespace.number
+        number = int(namespace.number)
     else:
         number = None
     if namespace.game:
