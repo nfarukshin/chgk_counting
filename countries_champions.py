@@ -6,6 +6,7 @@ import argparse
 from operator import attrgetter
 import os
 import csv
+import json
 
 PREAMBLE = 'История ещё пополняется, статистика может быть неполна. Если у вас есть больше информации, особенно ' \
            'о составах призёров самых ранних чемпионатов, — напишите, пожалуйста, на <info@maii.li>.'
@@ -50,6 +51,9 @@ class Awardee:
         self.silver = 0
         self.bronze = 0
 
+    def __dict__(self):
+        return {"id": id, "game": game, "sum": sum, "gold": gold, "silver": silver, "bronze": bronze}
+
 
 class superAwardee(Awardee):
     games = {}  # example: {'chgk': Awardee, 'br': Awardee}
@@ -73,6 +77,8 @@ class Team:
         self.city = city
         self.players = players
 
+    def __dict__(self):
+        return {"id": id, "name": name, "city": city, "players": players}
 
 class Player:
     def __init__(self, id, name, surname):
@@ -80,17 +86,20 @@ class Player:
         self.name = name
         self.surname = surname
 
+    def __dict__(self):
+        return {"id": id, "name": name, "surname": surname}
+
 
 def count_champions(awardees_counting_dict, id, place, game='chgk'):
     awardee = awardees_counting_dict.get(id)
     if awardee is None:
         awardee = Awardee(id)
 
-    if place == 1:
+    if place == 0:
         awardee.gold += 1
-    elif place == 2:
+    elif place == 1:
         awardee.silver += 1
-    elif place == 3:
+    elif place == 2:
         awardee.bronze += 1
     else:
         print(f"Error with place={place} from awardee with id={id}")
@@ -105,9 +114,9 @@ def count_other_game(csv, game):
 
 
 def get_player(raw_player):
-    id_player = raw_player['player']['id']
-    name_player = raw_player['player']['name']
-    surname_player = raw_player['player']['surname']
+    id_player = raw_player['id']
+    name_player = raw_player['name']
+    surname_player = raw_player['surname']
     player = Player(id_player, name_player, surname_player)
 
     return player
@@ -129,6 +138,11 @@ def get_prizer(id_tournament, list_tournament, place):
 
     return team
 
+def get_team_dict(team, players):
+    return {"id": team.id, "name": team.name, "actual_name": "", "city": team.city, "players": players}
+
+def get_player_dict(player):
+    return {"name": player.name, "old_name": "", "surname": player.surname, "old_surname": ""}
 
 def get_prizer_name(team):
     team_name = team['team']['name']
@@ -202,9 +216,26 @@ def transform_file2list(file):
     return lines
 
 
-def save_to_csv(list_tournaments):
+def save_to_json(list_tournaments, country):
+    with open(f'{country}_json.txt', 'w') as outfile:
+        json.dump(list_tournaments, outfile)
+
+
+def open_from_json(country):
+    with open(f'{country}_json.txt') as json_file:
+        country_info = json.load(json_file)
+    return country_info
+
+
+def update_by_id(id):
     pass
 
+
+def update_name_team(name):
+    pass
+
+def get_list_tournaments(list):
+    pass
 
 def get_tournament_info(id_tournament):
     url_common_info = f'https://api.rating.chgk.net/tournaments/{id_tournament}.json'
@@ -229,13 +260,102 @@ def get_tournament_info(id_tournament):
 
     return tournament_date, city_tournament, ey, country_contributors
 
+
+def calculate_from_ids(filename, country_cyrillic, game, number, country_info):
+    f = transform_file2list(filename)
+    country = filename[:-4]
+    is_complete_teams = True
+    is_complete_players = True
+
+    if number is None:
+        number_champ = len(f)
+    else:
+        number_champ = number
+        is_complete_teams = False
+
+    team_count = {}
+    player_count = {}
+    player_id_name = {}
+    country_info[country] = {"country_cyrillic": country_cyrillic,
+                             "first_year": None,
+                             "description": "",
+                             "years": {}
+                             }
+    t_errors = {'first': [], 'second': [], 'third': []}
+
+    for id_tournament in f:
+        champ = {}
+        awardees_counting_dict_teams = {}
+        awardees_counting_dict_players = {}
+        tournament_date, city_tournament, ey, country_contributors = get_tournament_info(id_tournament)
+
+        champ["number"] = number_champ
+        champ["game"] = game
+        champ["date"] = tournament_date
+        champ["city"] = city_tournament
+        champ["year"] = ey
+
+        for i in range(0, 3):
+            team = get_prizer(id_tournament, country_contributors, i)
+            team_count = count_champions(team_count, team.id, i)
+            if len(team.players) > 0:
+                for p in team.players:
+                    player = get_player(p['player'])
+                    player_id_name.update({player.id: f"{player.name} {player.surname}"})
+                    player_count = count_champions(player_count, player.id, 0)
+                    awardees_counting_dict_players[player.id] = get_player_dict(player)
+            else:
+                is_complete_players = False
+                t_errors['first'].append(id_tournament)
+
+            awardees_counting_dict_teams[i] = get_team_dict(team, awardees_counting_dict_players)
+
+        champ['awardees'] = awardees_counting_dict_teams
+        link = f'https://rating.chgk.info/tournament/{id_tournament}'
+        champ['links'].append(link)
+        champ['links_description'] = f'\nПолные результаты на [турнирном сайте]({link}).\n'
+        country_info[country]["years"][id_tournament] = champ
+
+        number_champ -= 1
+
+    awardees_counting_dict_teams = {}
+    if is_complete_teams:
+        for t in team_count:
+            team["name"] = id_team_name.get(t.id)
+            team["city"] = id_town_name.get(id_team_name_id_town.get(t.id))
+            team["sum"] = t.sum
+            team["gold"] = t.gold
+            team["silver"] = t.silver
+            team["bronze"] = t.bronze
+            awardees_counting_dict_teams[t.id] = team
+    else:
+        print("Teams statistics wasn't count because of incomplete.")
+
+    awardees_counting_dict_players = {}
+    if is_complete_teams and is_complete_players:
+        for p in player_count:
+            player["name_surname"] = player_id_name.get(p.id)
+            player["sum"] = p.sum
+            player["gold"] = p.gold
+            player["silver"] = p.silver
+            player["bronze"] = p.bronze
+            awardees_counting_dict_players[p.id] = player
+    else:
+        print("Players' statistics wasn't count because of incomplete.")
+
+    country_info[country] = {"count_teams": {game: awardees_counting_dict_teams},
+                             "count_players": {game: awardees_counting_dict_players}
+    }
+
+    return country_info
+
 def get_chgk_stats_from_id(filename, country_cyrillic, number):
     f = transform_file2list(filename)
     country = filename[:-4]
     is_complete_teams = True
     is_complete_players = True
 
-    if number == None:
+    if number is None:
         number_champ = len(f)
     else:
         number_champ = number
@@ -256,17 +376,17 @@ def get_chgk_stats_from_id(filename, country_cyrillic, number):
         name_tournament = f'{conv.arab_rom(number_champ)} чемпионат {country_cyrillic}'
 
         team_1 = get_prizer(id_tournament, country_contributors, 0)
-        team_count = count_champions(team_count, team_1.id, 1)
+        team_count = count_champions(team_count, team_1.id, 0)
 
         ff.write(f'\n**{name_tournament}** прошёл {tournament_date} в {city_tournament}. <a name="{ey}"></a>\n')
         ff.write(f"\nПобедитель: **[{team_1.name} ({team_1.city})](https://rating.chgk.info/teams/{team_1.id})**\n")
 
         if len(team_1.players) > 0:
             for p in team_1.players:
-                player = get_player(p)
+                player = get_player(p['player'])
                 name_surname = f"{player.name} {player.surname}"
                 player_id_name.update({player.id: name_surname})
-                player_count = count_champions(player_count, player.id, 1)
+                player_count = count_champions(player_count, player.id, 0)
 
                 ff.write(f'- {name_surname}\n')
         else:
@@ -277,14 +397,14 @@ def get_chgk_stats_from_id(filename, country_cyrillic, number):
                            f'— нет состава победителей.\n')
 
         team_2 = get_prizer(id_tournament, country_contributors, 1)
-        team_count = count_champions(team_count, team_2.id, 2)
+        team_count = count_champions(team_count, team_2.id, 1)
 
         if len(team_2.players) > 0 and is_complete_players:
             for p in team_2.players:
-                player = get_player(p)
+                player = get_player(p['player'])
                 name_surname = f"{player.name} {player.surname}"
                 player_id_name.update({player.id: name_surname})
-                player_count = count_champions(player_count, player.id, 2)
+                player_count = count_champions(player_count, player.id, 1)
         else:
             is_complete_players = False
             t_errors['second'].append(id_tournament)
@@ -292,14 +412,14 @@ def get_chgk_stats_from_id(filename, country_cyrillic, number):
                            f'— нет состава серебряных призёров.\n')
 
         team_3 = get_prizer(id_tournament, country_contributors, 2)
-        team_count = count_champions(team_count, team_3.id, 3)
+        team_count = count_champions(team_count, team_3.id, 2)
 
         if len(team_3.players) > 0 and is_complete_players:
             for p in team_3.players:
-                player = get_player(p)
+                player = get_player(p['player'])
                 name_surname = f"{player.name} {player.surname}"
                 player_id_name.update({player.id: name_surname})
-                player_count = count_champions(player_count, player.id, 3)
+                player_count = count_champions(player_count, player.id, 2)
         else:
             is_complete_players = False
             t_errors['third'].append(id_tournament)
