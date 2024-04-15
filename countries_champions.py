@@ -7,25 +7,7 @@ from operator import attrgetter
 import os
 import csv
 import json
-
-PREAMBLE = 'История ещё пополняется, статистика может быть неполна. Если у вас есть больше информации, особенно ' \
-           'о составах призёров самых ранних чемпионатов, — напишите, пожалуйста, на <info@maii.li>.'
-HALL_OF_FAME_TEXT = '## Зал славы чемпионата '
-ATOP_TEXT = ' <a name="atop"></a>'
-TEAMS_CONTENTS = 'Команды'
-TEAMS_ANCHOR = 'teams'
-PLAYERS_CONTENTS = 'Игроки'
-PLAYERS_ANCHOR = 'players'
-PLAYERS_ERROR = 'Состав победителей неизвестен. Если вы что-то о нём знаете, напишите, пожалуйста, на <info@maii.li>.'
-PLAYERS_STATS_ERROR = 'Статистика неполна, поскольку на следующих турнирах пока нет составов:\n'
-YEARS_CONTENTS = 'Чемпионаты по годам'
-YEARS_ANCHOR = 'years'
-YEARS_LINK_TEXT = 'К списку чемпионатов'
-FILE_PATH = 'txt/'
-
-TABLE_TEAMS_STYLE = 'uk-table uk-table-divider uk-table-hover uk-width-1-2'
-TABLE_PLAYERS_STYLE = 'uk-table uk-table-divider uk-table-hover uk-width-1-2'
-ROW_STYLE = 'uk-text-center'
+import constants
 
 id_team_name = {}
 id_town_name = {}
@@ -38,6 +20,7 @@ def create_parser():
     parser.add_argument('-c', '--cyr')
     parser.add_argument('-n', '--number')
     parser.add_argument('-g', '--game')
+    parser.add_argument('-t', '--test')
 
     return parser
 
@@ -228,13 +211,17 @@ def open_from_json(country):
 
 
 def update_by_id(id):
+
+    # TODO
     pass
 
 
 def update_name_team(name):
+    # TODO
     pass
 
 def get_list_tournaments(list):
+    # TODO
     pass
 
 def get_tournament_info(id_tournament):
@@ -261,7 +248,7 @@ def get_tournament_info(id_tournament):
     return tournament_date, city_tournament, ey, country_contributors
 
 
-def calculate_from_ids(filename, country_cyrillic, game, number, country_info):
+def calculate_from_ids(filename, country_cyrillic, game, number):
     f = transform_file2list(filename)
     country = filename[:-4]
     is_complete_teams = True
@@ -272,6 +259,7 @@ def calculate_from_ids(filename, country_cyrillic, game, number, country_info):
     else:
         number_champ = number
         is_complete_teams = False
+    country_info = dict()
 
     team_count = {}
     player_count = {}
@@ -294,6 +282,7 @@ def calculate_from_ids(filename, country_cyrillic, game, number, country_info):
         champ["date"] = tournament_date
         champ["city"] = city_tournament
         champ["year"] = ey
+        champ["links"] = []
 
         for i in range(0, 3):
             team = get_prizer(id_tournament, country_contributors, i)
@@ -320,34 +309,27 @@ def calculate_from_ids(filename, country_cyrillic, game, number, country_info):
 
     awardees_counting_dict_teams = {}
     if is_complete_teams:
-        for t in team_count:
-            team["name"] = id_team_name.get(t.id)
-            team["city"] = id_town_name.get(id_team_name_id_town.get(t.id))
-            team["sum"] = t.sum
-            team["gold"] = t.gold
-            team["silver"] = t.silver
-            team["bronze"] = t.bronze
+        for t in team_count.values():
+            team = {'name': id_team_name.get(t.id), 'city': id_town_name.get(id_team_name_id_town.get(t.id)),
+                    'sum': t.sum, 'gold': t.gold, 'silver': t.silver, 'bronze': t.bronze}
             awardees_counting_dict_teams[t.id] = team
     else:
         print("Teams statistics wasn't count because of incomplete.")
 
+    country_info[country]["count_teams"] = {game: awardees_counting_dict_teams}
+
     awardees_counting_dict_players = {}
     if is_complete_teams and is_complete_players:
-        for p in player_count:
-            player["name_surname"] = player_id_name.get(p.id)
-            player["sum"] = p.sum
-            player["gold"] = p.gold
-            player["silver"] = p.silver
-            player["bronze"] = p.bronze
+        for p in player_count.values():
+            player = {"name_surname": player_id_name.get(p.id), "sum": p.sum, "gold": p.gold, "silver": p.silver,
+                      "bronze": p.bronze}
             awardees_counting_dict_players[p.id] = player
     else:
         print("Players' statistics wasn't count because of incomplete.")
 
-    country_info[country] = {"count_teams": {game: awardees_counting_dict_teams},
-                             "count_players": {game: awardees_counting_dict_players}
-    }
+    country_info[country]["count_players"] = {game: awardees_counting_dict_players}
 
-    return country_info
+    save_to_json(country_info, country)
 
 def get_chgk_stats_from_id(filename, country_cyrillic, number):
     f = transform_file2list(filename)
@@ -361,10 +343,10 @@ def get_chgk_stats_from_id(filename, country_cyrillic, number):
         number_champ = number
         is_complete_teams = False
 
-    ff = open(f'{FILE_PATH}{country}_output_years.txt', 'w')
-    f_cap = open(f'{FILE_PATH}{country}_output_cap.txt', 'w')
-    f_count = open(f'{FILE_PATH}{country}_output_count.txt', 'w')
-    f_errors = open(f'{FILE_PATH}{country}_errors.txt', 'w')
+    ff = open(f'{constants.FILE_PATH}{country}_output_years.txt', 'w')
+    f_cap = open(f'{constants.FILE_PATH}{country}_output_cap.txt', 'w')
+    f_count = open(f'{constants.FILE_PATH}{country}_output_count.txt', 'w')
+    f_errors = open(f'{constants.FILE_PATH}{country}_errors.txt', 'w')
     team_count = {}
     player_count = {}
     player_id_name = {}
@@ -432,7 +414,7 @@ def get_chgk_stats_from_id(filename, country_cyrillic, number):
             f'({team_2.city}), третье — [{team_3.name}]'
             f'(https://rating.chgk.info/teams/{team_3.id}) ({team_3.city}).\n')
         ff.write(f'\nПолные результаты на [турнирном сайте](https://rating.chgk.info/tournament/{id_tournament}).\n')
-        ff.write(f'\n<small>*[{YEARS_LINK_TEXT}](#{YEARS_ANCHOR})*</small>\n')
+        ff.write(f'\n<small>*[{constants.YEARS_LINK_TEXT}](#{constants.YEARS_ANCHOR})*</small>\n')
 
         f_cap.write(f'- [{name_tournament} ({ey})](#{ey})\n')
 
@@ -445,22 +427,22 @@ def get_chgk_stats_from_id(filename, country_cyrillic, number):
     if is_complete_teams:
         sorted_teams_by_championship = sorted(team_count.values(), key=attrgetter('gold', 'silver', 'bronze', 'sum'),
                                               reverse=True)
-        f_count.write(f'\n### {TEAMS_CONTENTS} <a name="{TEAMS_ANCHOR}"></a>\n')
-        f_count.write(f'\n<table class="{TABLE_TEAMS_STYLE}">\n<thead>\n<tr>'
+        f_count.write(f'\n### {constants.TEAMS_CONTENTS} <a name="{constants.TEAMS_ANCHOR}"></a>\n')
+        f_count.write(f'\n<table class="{constants.TABLE_TEAMS_STYLE}">\n<thead>\n<tr>'
                       f'\n<th>Название</th>\n')
-        f_count.write(f'<th>Город</th>\n<th class ="{ROW_STYLE}">I</th>\n')
-        f_count.write(f'<th class ="{ROW_STYLE}">II</th>\n<th class ="{ROW_STYLE}">III</th>\n')
-        f_count.write(f'<th class ="{ROW_STYLE}">∑</th>\n</tr>\n')
+        f_count.write(f'<th>Город</th>\n<th class ="{constants.ROW_STYLE}">I</th>\n')
+        f_count.write(f'<th class ="{constants.ROW_STYLE}">II</th>\n<th class ="{constants.ROW_STYLE}">III</th>\n')
+        f_count.write(f'<th class ="{constants.ROW_STYLE}">∑</th>\n</tr>\n')
         f_count.write('</thead>\n<tbody>\n')
 
         for team in sorted_teams_by_championship:
             champion_name = id_team_name.get(team.id)
             champion_town = id_town_name.get(id_team_name_id_town.get(team.id))
             f_count.write(f'<tr>\n<td><a href="https://rating.chgk.info/teams/{team.id}">{champion_name}</a></td>\n')
-            f_count.write(f'<td>{champion_town}</td>\n<td class ="{ROW_STYLE}">{team.gold}</td>\n')
-            f_count.write(f'<td class ="{ROW_STYLE}">{team.silver}</td>\n')
-            f_count.write(f'<td class ="{ROW_STYLE}">{team.bronze}</td>\n')
-            f_count.write(f'<td class ="{ROW_STYLE}">{team.sum}</td>\n</tr>\n')
+            f_count.write(f'<td>{champion_town}</td>\n<td class ="{constants.ROW_STYLE}">{team.gold}</td>\n')
+            f_count.write(f'<td class ="{constants.ROW_STYLE}">{team.silver}</td>\n')
+            f_count.write(f'<td class ="{constants.ROW_STYLE}">{team.bronze}</td>\n')
+            f_count.write(f'<td class ="{constants.ROW_STYLE}">{team.sum}</td>\n</tr>\n')
 
         f_count.write(f'</tbody>\n</table>\n')
         f_count.write(f'\n<small>*[Наверх](#atop)*</small>\n')
@@ -473,23 +455,23 @@ def get_chgk_stats_from_id(filename, country_cyrillic, number):
                                                 key=attrgetter('gold', 'silver', 'bronze', 'sum'),
                                                 reverse=True)
 
-        f_count.write(f'\n## {PLAYERS_CONTENTS} <a name="{PLAYERS_ANCHOR}"></a>\n')
-        f_count.write(f'\n<table class="{TABLE_PLAYERS_STYLE}">\n<thead>\n<tr>'
+        f_count.write(f'\n## {constants.PLAYERS_CONTENTS} <a name="{constants.PLAYERS_ANCHOR}"></a>\n')
+        f_count.write(f'\n<table class="{constants.TABLE_PLAYERS_STYLE}">\n<thead>\n<tr>'
                       f'\n<th>Имя</th>\n')
-        f_count.write(f'<th class ="{ROW_STYLE}">I</th>\n')
-        f_count.write(f'<th class ="{ROW_STYLE}">II</th>\n')
-        f_count.write(f'<th class ="{ROW_STYLE}">III</th>\n')
-        f_count.write(f'<th class ="{ROW_STYLE}">∑</th>\n</tr>\n')
+        f_count.write(f'<th class ="{constants.ROW_STYLE}">I</th>\n')
+        f_count.write(f'<th class ="{constants.ROW_STYLE}">II</th>\n')
+        f_count.write(f'<th class ="{constants.ROW_STYLE}">III</th>\n')
+        f_count.write(f'<th class ="{constants.ROW_STYLE}">∑</th>\n</tr>\n')
         f_count.write(f'</thead>\n<tbody>\n')
 
         for player in sorted_players_by_championship:
             name_champion_player = player_id_name.get(player.id)
             f_count.write(f'<tr>\n<td><a href="https://rating.chgk.info/player/{player.id}">'
                           f'{name_champion_player}</a></td>\n')
-            f_count.write(f'<td class ="{ROW_STYLE}">{player.gold}</td>\n')
-            f_count.write(f'<td class ="{ROW_STYLE}">{player.silver}</td>\n')
-            f_count.write(f'<td class ="{ROW_STYLE}">{player.bronze}</td>\n')
-            f_count.write(f'<td class ="{ROW_STYLE}">{player.sum}</td>\n</tr>\n')
+            f_count.write(f'<td class ="{constants.ROW_STYLE}">{player.gold}</td>\n')
+            f_count.write(f'<td class ="{constants.ROW_STYLE}">{player.silver}</td>\n')
+            f_count.write(f'<td class ="{constants.ROW_STYLE}">{player.bronze}</td>\n')
+            f_count.write(f'<td class ="{constants.ROW_STYLE}">{player.sum}</td>\n</tr>\n')
 
         f_count.write(f'</tbody>\n</table>')
     else:
@@ -504,26 +486,27 @@ def get_chgk_stats_from_id(filename, country_cyrillic, number):
 
 
 def make_file(country, country_cyrillic):
-    cap = open(f'{FILE_PATH}{country}_output_cap.txt', 'r')
-    count = open(f'{FILE_PATH}{country}_output_count.txt', 'r')
-    years = open(f'{FILE_PATH}{country}_output_years.txt', 'r')
-    errors = open(f'{FILE_PATH}{country}_errors.txt', 'r')
-    result = open(f'{FILE_PATH}{country}_result.txt', 'w')
+    cap = open(f'{constants.FILE_PATH}{country}_output_cap.txt', 'r')
+    count = open(f'{constants.FILE_PATH}{country}_output_count.txt', 'r')
+    years = open(f'{constants.FILE_PATH}{country}_output_years.txt', 'r')
+    errors = open(f'{constants.FILE_PATH}{country}_errors.txt', 'r')
+    result = open(f'{constants.FILE_PATH}{country}_result.txt', 'w')
 
-    result.write(f'{PREAMBLE}\n\n{HALL_OF_FAME_TEXT}{country_cyrillic}{ATOP_TEXT}\n - [{TEAMS_CONTENTS}'
-                 f'](#{TEAMS_ANCHOR})\n - [{PLAYERS_CONTENTS}](#{PLAYERS_ANCHOR})\n'
-                 f' - [{YEARS_CONTENTS}](#{YEARS_ANCHOR})\n')
+    result.write(f'{constants.PREAMBLE}\n\n{constants.HALL_OF_FAME_TEXT}{country_cyrillic}{constants.ATOP_TEXT}\n - '
+                 f'[{constants.TEAMS_CONTENTS}'
+                 f'](#{constants.TEAMS_ANCHOR})\n - [{constants.PLAYERS_CONTENTS}](#{constants.PLAYERS_ANCHOR})\n'
+                 f' - [{constants.YEARS_CONTENTS}](#{constants.YEARS_ANCHOR})\n')
     for l in count:
         result.write(l)
 
-    if os.stat(f'{FILE_PATH}{country}_errors.txt').st_size != 0:
-        result.write(f'\n\n{PLAYERS_STATS_ERROR}')
+    if os.stat(f'{constants.FILE_PATH}{country}_errors.txt').st_size != 0:
+        result.write(f'\n\n{constants.PLAYERS_STATS_ERROR}')
         for l in errors:
             result.write(l)
 
     result.write(f'\n\n<small>*[Наверх](#atop)*</small>\n')
 
-    result.write(f'\n### {YEARS_CONTENTS} <a name="{YEARS_ANCHOR}"></a>\n\n')
+    result.write(f'\n### {constants.YEARS_CONTENTS} <a name="{constants.YEARS_ANCHOR}"></a>\n\n')
 
     for l in cap:
         result.write(f'{l}')
@@ -553,6 +536,11 @@ if __name__ == '__main__':
         game = namespace.game
     else:
         game = 'chgk'
+    if namespace.test:
+        test = namespace.test
 
-    if game == 'chgk':
+    if test == "on":
+        country_cyrillic = "Ирана"
+        calculate_from_ids(filename, country_cyrillic, game, number)
+    elif game == 'chgk':
         get_chgk_stats_from_id(filename, country_cyrillic, number)
