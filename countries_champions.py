@@ -240,7 +240,11 @@ def get_tournament_info(id_tournament):
     except:
         print(f'Problem with extracting dates and town tournament id={id_tournament}')
 
-    city_tournament = inflect_town(get_city_tournament(city_id))
+    try:
+        city_tournament = inflect_town(get_city_tournament(city_id))
+    except:
+        print(f"Problem with inflecting town at tournament with id {id_tournament}")
+
     tournament_date = get_tournament_date(date_start, date_end)
     ey = get_year_print(date_end)
     country_contributors = get_country_contributors(id_tournament)
@@ -251,14 +255,13 @@ def get_tournament_info(id_tournament):
 def calculate_from_ids(filename, country_cyrillic, game, number):
     f = transform_file2list(filename)
     country = filename[:-4]
-    is_complete_teams = True
-    is_complete_players = True
+
 
     if number is None:
         number_champ = len(f)
     else:
         number_champ = number
-        is_complete_teams = False
+
     country_info = dict()
 
     team_count = {}
@@ -294,7 +297,6 @@ def calculate_from_ids(filename, country_cyrillic, game, number):
                     player_count = count_champions(player_count, player.id, 0)
                     awardees_counting_dict_players[player.id] = get_player_dict(player)
             else:
-                is_complete_players = False
                 t_errors['first'].append(id_tournament)
 
             awardees_counting_dict_teams[i] = get_team_dict(team, awardees_counting_dict_players)
@@ -302,30 +304,24 @@ def calculate_from_ids(filename, country_cyrillic, game, number):
         champ['awardees'] = awardees_counting_dict_teams
         link = f'https://rating.chgk.info/tournament/{id_tournament}'
         champ['links'].append(link)
-        champ['links_description'] = f'\nПолные результаты на [турнирном сайте]({link}).\n'
+        champ['links_description'] = f'\nПолные результаты на [турнирном сайте]({link})\n'
         country_info[country]["years"][id_tournament] = champ
 
         number_champ -= 1
 
     awardees_counting_dict_teams = {}
-    if is_complete_teams:
-        for t in team_count.values():
-            team = {'name': id_team_name.get(t.id), 'city': id_town_name.get(id_team_name_id_town.get(t.id)),
-                    'sum': t.sum, 'gold': t.gold, 'silver': t.silver, 'bronze': t.bronze}
-            awardees_counting_dict_teams[t.id] = team
-    else:
-        print("Teams statistics wasn't count because of incomplete.")
+    for t in team_count.values():
+        team = {'name': id_team_name.get(t.id), 'city': id_town_name.get(id_team_name_id_town.get(t.id)),
+                'sum': t.sum, 'gold': t.gold, 'silver': t.silver, 'bronze': t.bronze}
+        awardees_counting_dict_teams[t.id] = team
 
     country_info[country]["count_teams"] = {game: awardees_counting_dict_teams}
 
     awardees_counting_dict_players = {}
-    if is_complete_teams and is_complete_players:
-        for p in player_count.values():
-            player = {"name_surname": player_id_name.get(p.id), "sum": p.sum, "gold": p.gold, "silver": p.silver,
-                      "bronze": p.bronze}
-            awardees_counting_dict_players[p.id] = player
-    else:
-        print("Players' statistics wasn't count because of incomplete.")
+    for p in player_count.values():
+        player = {"name_surname": player_id_name.get(p.id), "sum": p.sum, "gold": p.gold, "silver": p.silver,
+                  "bronze": p.bronze}
+        awardees_counting_dict_players[p.id] = player
 
     country_info[country]["count_players"] = {game: awardees_counting_dict_players}
 
@@ -334,14 +330,11 @@ def calculate_from_ids(filename, country_cyrillic, game, number):
 def get_chgk_stats_from_id(filename, country_cyrillic, number):
     f = transform_file2list(filename)
     country = filename[:-4]
-    is_complete_teams = True
-    is_complete_players = True
 
     if number is None:
         number_champ = len(f)
     else:
         number_champ = number
-        is_complete_teams = False
 
     ff = open(f'{constants.FILE_PATH}{country}_output_years.txt', 'w')
     f_cap = open(f'{constants.FILE_PATH}{country}_output_cap.txt', 'w')
@@ -372,8 +365,7 @@ def get_chgk_stats_from_id(filename, country_cyrillic, number):
 
                 ff.write(f'- {name_surname}\n')
         else:
-            is_complete_players = False
-            ff.write(f'\n{PLAYERS_ERROR}\n')
+            ff.write(f'\n{constants.PLAYERS_ERROR}\n')
             t_errors['first'].append(id_tournament)
             f_errors.write(f'- [{name_tournament}](https://rating.chgk.info/tournament/{id_tournament}) '
                            f'— нет состава победителей.\n')
@@ -381,14 +373,13 @@ def get_chgk_stats_from_id(filename, country_cyrillic, number):
         team_2 = get_prizer(id_tournament, country_contributors, 1)
         team_count = count_champions(team_count, team_2.id, 1)
 
-        if len(team_2.players) > 0 and is_complete_players:
+        if len(team_2.players) > 0:
             for p in team_2.players:
                 player = get_player(p['player'])
                 name_surname = f"{player.name} {player.surname}"
                 player_id_name.update({player.id: name_surname})
                 player_count = count_champions(player_count, player.id, 1)
         else:
-            is_complete_players = False
             t_errors['second'].append(id_tournament)
             f_errors.write(f'- [{name_tournament}](https://rating.chgk.info/tournament/{id_tournament}) '
                            f'— нет состава серебряных призёров.\n')
@@ -396,14 +387,13 @@ def get_chgk_stats_from_id(filename, country_cyrillic, number):
         team_3 = get_prizer(id_tournament, country_contributors, 2)
         team_count = count_champions(team_count, team_3.id, 2)
 
-        if len(team_3.players) > 0 and is_complete_players:
+        if len(team_3.players) > 0:
             for p in team_3.players:
                 player = get_player(p['player'])
                 name_surname = f"{player.name} {player.surname}"
                 player_id_name.update({player.id: name_surname})
                 player_count = count_champions(player_count, player.id, 2)
         else:
-            is_complete_players = False
             t_errors['third'].append(id_tournament)
             f_errors.write(f'- [{name_tournament}](https://rating.chgk.info/tournament/{id_tournament}) '
                            f'— нет состава бронзовых призёров.\n')
@@ -424,58 +414,53 @@ def get_chgk_stats_from_id(filename, country_cyrillic, number):
 
     # teams hall of fame
 
-    if is_complete_teams:
-        sorted_teams_by_championship = sorted(team_count.values(), key=attrgetter('gold', 'silver', 'bronze', 'sum'),
-                                              reverse=True)
-        f_count.write(f'\n### {constants.TEAMS_CONTENTS} <a name="{constants.TEAMS_ANCHOR}"></a>\n')
-        f_count.write(f'\n<table class="{constants.TABLE_TEAMS_STYLE}">\n<thead>\n<tr>'
-                      f'\n<th>Название</th>\n')
-        f_count.write(f'<th>Город</th>\n<th class ="{constants.ROW_STYLE}">I</th>\n')
-        f_count.write(f'<th class ="{constants.ROW_STYLE}">II</th>\n<th class ="{constants.ROW_STYLE}">III</th>\n')
-        f_count.write(f'<th class ="{constants.ROW_STYLE}">∑</th>\n</tr>\n')
-        f_count.write('</thead>\n<tbody>\n')
+    sorted_teams_by_championship = sorted(team_count.values(), key=attrgetter('gold', 'silver', 'bronze', 'sum'),
+                                          reverse=True)
+    f_count.write(f'\n### {constants.TEAMS_CONTENTS} <a name="{constants.TEAMS_ANCHOR}"></a>\n')
+    f_count.write(f'\n<table class="{constants.TABLE_TEAMS_STYLE}">\n<thead>\n<tr>'
+                  f'\n<th>Название</th>\n')
+    f_count.write(f'<th>Город</th>\n<th class ="{constants.ROW_STYLE}">I</th>\n')
+    f_count.write(f'<th class ="{constants.ROW_STYLE}">II</th>\n<th class ="{constants.ROW_STYLE}">III</th>\n')
+    f_count.write(f'<th class ="{constants.ROW_STYLE}">∑</th>\n</tr>\n')
+    f_count.write('</thead>\n<tbody>\n')
 
-        for team in sorted_teams_by_championship:
-            champion_name = id_team_name.get(team.id)
-            champion_town = id_town_name.get(id_team_name_id_town.get(team.id))
-            f_count.write(f'<tr>\n<td><a href="https://rating.chgk.info/teams/{team.id}">{champion_name}</a></td>\n')
-            f_count.write(f'<td>{champion_town}</td>\n<td class ="{constants.ROW_STYLE}">{team.gold}</td>\n')
-            f_count.write(f'<td class ="{constants.ROW_STYLE}">{team.silver}</td>\n')
-            f_count.write(f'<td class ="{constants.ROW_STYLE}">{team.bronze}</td>\n')
-            f_count.write(f'<td class ="{constants.ROW_STYLE}">{team.sum}</td>\n</tr>\n')
+    for team in sorted_teams_by_championship:
+        champion_name = id_team_name.get(team.id)
+        champion_town = id_town_name.get(id_team_name_id_town.get(team.id))
+        f_count.write(f'<tr>\n<td><a href="https://rating.chgk.info/teams/{team.id}">{champion_name}</a></td>\n')
+        f_count.write(f'<td>{champion_town}</td>\n<td class ="{constants.ROW_STYLE}">{team.gold}</td>\n')
+        f_count.write(f'<td class ="{constants.ROW_STYLE}">{team.silver}</td>\n')
+        f_count.write(f'<td class ="{constants.ROW_STYLE}">{team.bronze}</td>\n')
+        f_count.write(f'<td class ="{constants.ROW_STYLE}">{team.sum}</td>\n</tr>\n')
 
-        f_count.write(f'</tbody>\n</table>\n')
-        f_count.write(f'\n<small>*[Наверх](#atop)*</small>\n')
-    else:
-        print("Teams statistics wasn't count because of incomplete.")
+    f_count.write(f'</tbody>\n</table>\n')
+    f_count.write(f'\n<small>*[Наверх](#atop)*</small>\n')
 
     # players hall of fame
-    if is_complete_teams and is_complete_players:
-        sorted_players_by_championship = sorted(player_count.values(),
-                                                key=attrgetter('gold', 'silver', 'bronze', 'sum'),
-                                                reverse=True)
+    sorted_players_by_championship = sorted(player_count.values(),
+                                            key=attrgetter('gold', 'silver', 'bronze', 'sum'),
+                                            reverse=True)
 
-        f_count.write(f'\n## {constants.PLAYERS_CONTENTS} <a name="{constants.PLAYERS_ANCHOR}"></a>\n')
-        f_count.write(f'\n<table class="{constants.TABLE_PLAYERS_STYLE}">\n<thead>\n<tr>'
-                      f'\n<th>Имя</th>\n')
-        f_count.write(f'<th class ="{constants.ROW_STYLE}">I</th>\n')
-        f_count.write(f'<th class ="{constants.ROW_STYLE}">II</th>\n')
-        f_count.write(f'<th class ="{constants.ROW_STYLE}">III</th>\n')
-        f_count.write(f'<th class ="{constants.ROW_STYLE}">∑</th>\n</tr>\n')
-        f_count.write(f'</thead>\n<tbody>\n')
+    f_count.write(f'\n## {constants.PLAYERS_CONTENTS} <a name="{constants.PLAYERS_ANCHOR}"></a>\n')
+    f_count.write(f'\n<table class="{constants.TABLE_PLAYERS_STYLE}">\n<thead>\n<tr>'
+                  f'\n<th>Имя</th>\n')
+    f_count.write(f'<th class ="{constants.ROW_STYLE}">I</th>\n')
+    f_count.write(f'<th class ="{constants.ROW_STYLE}">II</th>\n')
+    f_count.write(f'<th class ="{constants.ROW_STYLE}">III</th>\n')
+    f_count.write(f'<th class ="{constants.ROW_STYLE}">∑</th>\n</tr>\n')
+    f_count.write(f'</thead>\n<tbody>\n')
 
-        for player in sorted_players_by_championship:
-            name_champion_player = player_id_name.get(player.id)
-            f_count.write(f'<tr>\n<td><a href="https://rating.chgk.info/player/{player.id}">'
-                          f'{name_champion_player}</a></td>\n')
-            f_count.write(f'<td class ="{constants.ROW_STYLE}">{player.gold}</td>\n')
-            f_count.write(f'<td class ="{constants.ROW_STYLE}">{player.silver}</td>\n')
-            f_count.write(f'<td class ="{constants.ROW_STYLE}">{player.bronze}</td>\n')
-            f_count.write(f'<td class ="{constants.ROW_STYLE}">{player.sum}</td>\n</tr>\n')
+    for player in sorted_players_by_championship:
+        name_champion_player = player_id_name.get(player.id)
+        f_count.write(f'<tr>\n<td><a href="https://rating.chgk.info/player/{player.id}">'
+                      f'{name_champion_player}</a></td>\n')
+        f_count.write(f'<td class ="{constants.ROW_STYLE}">{player.gold}</td>\n')
+        f_count.write(f'<td class ="{constants.ROW_STYLE}">{player.silver}</td>\n')
+        f_count.write(f'<td class ="{constants.ROW_STYLE}">{player.bronze}</td>\n')
+        f_count.write(f'<td class ="{constants.ROW_STYLE}">{player.sum}</td>\n</tr>\n')
 
-        f_count.write(f'</tbody>\n</table>')
-    else:
-        print("Players' statistics wasn't count because of incomplete.")
+    f_count.write(f'</tbody>\n</table>')
+
 
     ff.close()
     f_cap.close()
@@ -536,10 +521,8 @@ if __name__ == '__main__':
         game = namespace.game
     else:
         game = 'chgk'
-    if namespace.test:
-        test = namespace.test
 
-    if test == "on":
+    if namespace.test == "on":
         country_cyrillic = "Ирана"
         calculate_from_ids(filename, country_cyrillic, game, number)
     elif game == 'chgk':

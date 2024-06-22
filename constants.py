@@ -13,6 +13,6 @@ YEARS_ANCHOR = 'years'
 YEARS_LINK_TEXT = 'К списку чемпионатов'
 FILE_PATH = 'txt/'
 
-TABLE_TEAMS_STYLE = 'uk-table uk-table-divider uk-table-hover uk-width-1-2'
-TABLE_PLAYERS_STYLE = 'uk-table uk-table-divider uk-table-hover uk-width-1-2'
+TABLE_TEAMS_STYLE = 'uk-table uk-table-divider uk-table-hover uk-width-3-4'
+TABLE_PLAYERS_STYLE = 'uk-table uk-table-divider uk-table-hover uk-width-2-3'
 ROW_STYLE = 'uk-text-center'
