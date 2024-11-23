@@ -1,0 +1,18 @@
+PREAMBLE = 'История ещё пополняется, статистика может быть неполна. Если у вас есть больше информации, особенно ' \
+           'о составах призёров самых ранних чемпионатов, — напишите, пожалуйста, на <info@maii.li>.'
+HALL_OF_FAME_TEXT = '## Зал славы чемпионата '
+ATOP_TEXT = ' <a name="atop"></a>'
+TEAMS_CONTENTS = 'Команды'
+TEAMS_ANCHOR = 'teams'
+PLAYERS_CONTENTS = 'Игроки'
+PLAYERS_ANCHOR = 'players'
+PLAYERS_ERROR = 'Состав победителей неизвестен. Если вы что-то о нём знаете, напишите, пожалуйста, на <info@maii.li>.'
+PLAYERS_STATS_ERROR = 'Статистика неполна, поскольку на следующих турнирах пока нет составов:\n'
+YEARS_CONTENTS = 'Чемпионаты по годам'
+YEARS_ANCHOR = 'years'
+YEARS_LINK_TEXT = 'К списку чемпионатов'
+FILE_PATH = 'txt/'
+
+TABLE_TEAMS_STYLE = 'uk-table uk-table-divider uk-table-hover uk-width-3-4'
+TABLE_PLAYERS_STYLE = 'uk-table uk-table-divider uk-table-hover uk-width-2-3'
+ROW_STYLE = 'uk-text-center'
